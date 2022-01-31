@@ -9,6 +9,7 @@ import {
   Put,
   Req,
   Res,
+  UnauthorizedException,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
@@ -21,6 +22,7 @@ import { Request, Response } from 'express';
 import { AuthGuard } from './auth.guard';
 import { UpdateUserDto } from './dtos/updateUser.dto';
 import { UpdatePasswordDto } from './dtos/updatePassword.dto';
+import { User } from '../user/user';
 
 @Controller()
 @UseInterceptors(ClassSerializerInterceptor)
@@ -31,8 +33,8 @@ export class AuthController {
     private jwtService: JwtService,
   ) {}
 
-  @Post('admin/register')
-  async register(@Body() body: RegisterDto) {
+  @Post(['admin/register', 'ambassador/register'])
+  async register(@Body() body: RegisterDto, @Req() request: Request) {
     const { passwordConfirm, ...data } = body;
 
     if (data.password !== passwordConfirm) {
@@ -43,17 +45,18 @@ export class AuthController {
     return this.userService.save({
       ...data,
       password: hashed,
-      is_ambassador: false,
+      is_ambassador: request.path === '/api/ambassador/register',
     });
   }
 
-  @Post('admin/login')
+  @Post(['admin/login', 'ambassador/login'])
   async login(
     @Body('email') email: string,
     @Body('password') password: string,
     @Res({ passthrough: true }) response: Response,
+    @Req() request: Request,
   ) {
-    const user = await this.userService.findOne({ email });
+    const user: User = await this.userService.findOne({ email });
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -61,8 +64,16 @@ export class AuthController {
     if (!isMatch) {
       throw new BadRequestException('Incorrect password');
     }
+
+    const adminLogin = request.path === '/api/admin/login';
+
+    if (user.is_ambassador && adminLogin) {
+      throw new UnauthorizedException('You are not an admin');
+    }
+
     const jwt = await this.jwtService.signAsync({
       id: user.id,
+      scope: adminLogin ? 'ambassador' : 'admin',
     });
 
     response.cookie('token', jwt, {
@@ -73,7 +84,7 @@ export class AuthController {
   }
 
   @UseGuards(AuthGuard)
-  @Get('admin/user')
+  @Get(['admin/user', 'ambassador/user'])
   async user(@Req() request: Request) {
     const cookie = request.cookies.token;
 
@@ -85,7 +96,7 @@ export class AuthController {
   }
 
   @UseGuards(AuthGuard)
-  @Post('admin/logout')
+  @Post(['admin/logout', 'ambassador/logout'])
   async logout(@Res({ passthrough: true }) response: Response) {
     response.clearCookie('token');
 
@@ -93,7 +104,7 @@ export class AuthController {
   }
 
   @UseGuards(AuthGuard)
-  @Put('admin/users/info')
+  @Put(['admin/users/info', 'ambassador/users/info'])
   async updateUser(@Body() body: UpdateUserDto, @Req() request: Request) {
     const cookie = request.cookies.token;
 
@@ -111,7 +122,7 @@ export class AuthController {
   }
 
   @UseGuards(AuthGuard)
-  @Put('admin/users/password')
+  @Put(['admin/users/password', 'ambassador/users/password'])
   async updatePassword(
     @Body() body: UpdatePasswordDto,
     @Req() request: Request,
