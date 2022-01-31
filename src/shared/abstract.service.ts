@@ -10,7 +10,7 @@ export abstract class AbstractService<T> {
     return await this.repository.findOne(options);
   }
 
-  async findAll(options: Partial<T>) {
+  async findAll(options: Partial<T> = {}) {
     return await this.repository.find(options);
   }
 
