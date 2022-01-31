@@ -1,4 +1,13 @@
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Exclude, Expose } from 'class-transformer';
+import { Link } from '../link/link';
+import {
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  OneToMany,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
 import { OrderItem } from './orderItem';
 
 @Entity('orders')
@@ -18,15 +27,18 @@ export class Order {
   @Column()
   email: string;
 
+  @Exclude()
   @Column({ default: false })
   completed: boolean;
 
   @Column()
   ambassadorEmail: string;
 
+  @Exclude()
   @Column()
   ambassadorFirstName: string;
 
+  @Exclude()
   @Column()
   ambassadorLastName: string;
 
@@ -44,4 +56,23 @@ export class Order {
 
   @OneToMany(() => OrderItem, (orderItem) => orderItem.order)
   orderItems: OrderItem[];
+
+  @ManyToOne(() => Link, (link) => link.orders, {
+    createForeignKeyConstraints: false,
+  })
+  @JoinColumn({ name: 'code', referencedColumnName: 'code' })
+  link: Link;
+
+  @Expose()
+  get name(): string {
+    return `${this.ambassadorFirstName} ${this.ambassadorLastName}`;
+  }
+
+  @Expose()
+  get total(): number {
+    return this.orderItems.reduce(
+      (total, orderItem) => total + orderItem.adminRevenue,
+      0,
+    );
+  }
 }
