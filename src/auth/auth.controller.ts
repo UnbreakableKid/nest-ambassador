@@ -73,7 +73,7 @@ export class AuthController {
 
     const jwt = await this.jwtService.signAsync({
       id: user.id,
-      scope: adminLogin ? 'ambassador' : 'admin',
+      scope: !adminLogin ? 'ambassador' : 'admin',
     });
 
     response.cookie('token', jwt, {
@@ -90,9 +90,21 @@ export class AuthController {
 
     const { id } = await this.jwtService.verifyAsync(cookie);
 
-    const user = await this.userService.findOne({ id });
+    if (request.path === '/api/admin/user') {
+      return await this.userService.findOne({ id });
+    }
 
-    return user;
+    const user = await this.userService.findOne({
+      id,
+      relations: ['orders', 'orders.orderItems'],
+    });
+
+    const { orders, password, ...data } = user;
+
+    return {
+      ...data,
+      revenue: user.revenue,
+    };
   }
 
   @UseGuards(AuthGuard)

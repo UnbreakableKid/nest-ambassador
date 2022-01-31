@@ -9,6 +9,7 @@ import {
   PrimaryGeneratedColumn,
 } from 'typeorm';
 import { OrderItem } from './orderItem';
+import { User } from '../user/user';
 
 @Entity('orders')
 export class Order {
@@ -63,6 +64,11 @@ export class Order {
   @JoinColumn({ name: 'code', referencedColumnName: 'code' })
   link: Link;
 
+  @ManyToOne(() => User, (user) => user.orders, {
+    createForeignKeyConstraints: false,
+  })
+  user: User;
+
   @Expose()
   get name(): string {
     return `${this.ambassadorFirstName} ${this.ambassadorLastName}`;
@@ -72,6 +78,13 @@ export class Order {
   get total(): number {
     return this.orderItems.reduce(
       (total, orderItem) => total + orderItem.adminRevenue,
+      0,
+    );
+  }
+
+  get ambassadorRevenue(): number {
+    return this.orderItems.reduce(
+      (total, orderItem) => total + orderItem.ambassadorRevenue,
       0,
     );
   }
